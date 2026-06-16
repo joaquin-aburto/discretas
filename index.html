@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automata c</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 650px;
+        }
+        h1, h2 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        h1 { margin-top: 0; font-size: 24px; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        h2 { font-size: 16px; color: #7f8c8d; margin-bottom: 25px; }
+        .form-group { margin: 20px 0; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            box-sizing: border-box;
+            border: 2px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 16px;
+            font-family: monospace;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .result-box { margin-top: 25px; padding: 15px; border-radius: 4px; display: none; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .result-title { font-weight: bold; font-size: 18px; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Automata Finito</h1>
+    <h2>Joaquin Aburto Sanchez R-26110186</h2>
+    
+    <div class="form-group">
+        <label for="inputString">Ingrese la cadena :</label>
+        <input type="text" id="inputString" placeholder="">
+    </div>
+    
+    <button onclick="ejecutarAutomata()">Evaluar</button>
+
+    <div id="result" class="result-box">
+        <div id="resultTitle" class="result-title"></div>
+        <div id="resultBody"></div>
+    </div>
+</div>
+
+<script>
+// Estructura para palabras reservadas
+const palabrasReservadasC = new Set([
+    "auto", "break", "case", "char", "const", "continue", "default", "do",
+    "double", "else", "enum", "extern", "float", "for", "goto", "if",
+    "int", "long", "register", "return", "short", "signed", "sizeof", "static",
+    "struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while"
+]);
+
+document.getElementById('inputString').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') ejecutarAutomata();
+});
+
+// Clasificador de caracteres (Entradas del alfabeto simplificadas)
+function obtenerColumna(c) {
+    if (/[@~ñáéíóúÁÉÍÓÚ¿?¡]/.test(c)) return "INVALIDO"; 
+    if (/[a-fA-F]/.test(c)) return "LETRA_HEX"; 
+    if (/[gG]/.test(c)) return "LETRA_G"; 
+    if (/[hH]/.test(c)) return "LETRA_H"; 
+    if (/[eE]/.test(c)) return "LETRA_E"; 
+    if (/[a-zA-Z_]/.test(c)) return "LETRA_RESTO"; 
+    if (/[0-9]/.test(c)) return "DIGITO";
+    if (c === '+') return "MAS";
+    if (c === '-') return "MENOS";
+    if (c === '.') return "PUNTO";
+    if (c === '&') return "AMPERSAND";
+    if (c === '|') return "PIPE";
+    if (c === '!') return "ADMIRACION";
+    if (c === '=') return "IGUAL";
+    if (/[*/%]/.test(c)) return "ARITMETICO_SIMPLE";
+    if (/[<>]/.test(c)) return "RELACIONAL_SIMPLE";
+    return "DESCONOCIDO";
+}
+
+function ejecutarAutomata() {
+    const cadena = document.getElementById('inputString').value;
+    
+    if (cadena.trim() === "") {
+        mostrarError("Error Tipo b): Cadena incompleta / vacia.");
+        return;
+    }
+
+    // El estado inicial es q0
+    let estado = "q0"; 
+    let posError = 0;
+
+    // Ejecucion del ciclo del Automata caracter por caracter
+    for (let i = 0; i < cadena.length; i++) {
+        let char = cadena[i];
+        let col = obtenerColumna(char);
+        posError = i + 1;
+
+        if (col === "INVALIDO") {
+            mostrarError(`Error Tipo a): Caracter no valido '${char}' presente en la cadena.`);
+            return;
+        }
+
+        
+        switch (estado) {
+            case "q0":
+                if (col === "DIGITO") estado = "q_entero";
+                else if (col === "LETRA_HEX" || col === "LETRA_E" || col === "LETRA_G" || col === "LETRA_H" || col === "LETRA_RESTO") estado = "q_id";
+                else if (col === "MAS") estado = "q_mas";
+                else if (col === "MENOS") estado = "q_menos";
+                else if (col === "AMPERSAND") estado = "q_amp1";
+                else if (col === "PIPE") estado = "q_pipe1";
+                else if (col === "ADMIRACION") estado = "q_not";
+                else if (col === "IGUAL") estado = "q_igual1";
+                else if (col === "ARITMETICO_SIMPLE") estado = "q_arit_ok";
+                else if (col === "RELACIONAL_SIMPLE") estado = "q_rel_ok";
+                else estado = "q_error";
+                break;
+
+            case "q_id": 
+                if (["LETRA_HEX","LETRA_E","LETRA_G","LETRA_H","LETRA_RESTO","DIGITO"].includes(col)) estado = "q_id";
+                else estado = "q_error";
+                break;
+
+            case "q_entero": 
+                if (col === "DIGITO") estado = "q_entero";
+                else if (col === "LETRA_HEX" || col === "LETRA_E" || col === "LETRA_G") estado = "q_hex_mid";
+                else if (col === "LETRA_H") estado = "q_hex_ok";
+                else if (col === "PUNTO") estado = "q_real_dot";
+                else estado = "q_error";
+                break;
+
+            case "q_hex_mid": 
+                if (col === "DIGITO" || col === "LETRA_HEX" || col === "LETRA_E" || col === "LETRA_G") estado = "q_hex_mid";
+                else if (col === "LETRA_H") estado = "q_hex_ok";
+                else estado = "q_error";
+                break;
+
+            case "q_hex_ok": 
+                estado = "q_error";
+                break;
+
+            case "q_real_dot": 
+                if (col === "DIGITO") estado = "q_real_ok";
+                else estado = "q_error";
+                break;
+
+            case "q_real_ok": 
+                if (col === "DIGITO") estado = "q_real_ok";
+                else if (col === "LETRA_E") estado = "q_exp_e";
+                else estado = "q_error";
+                break;
+
+            case "q_mas": 
+                if (col === "DIGITO") estado = "q_entero";
+                else if (col === "MAS") estado = "q_arit_ok"; // ++
+                else estado = "q_error";
+                break;
+
+            case "q_menos": 
+                if (col === "DIGITO") estado = "q_entero";
+                else if (col === "MENOS") estado = "q_arit_ok"; // --
+                else estado = "q_error";
+                break;
+
+            case "q_amp1":
+                if (col === "AMPERSAND") estado = "q_log_ok"; // &&
+                else estado = "q_error";
+                break;
+
+            case "q_pipe1":
+                if (col === "PIPE") estado = "q_log_ok"; // ||
+                else estado = "q_error";
+                break;
+
+            case "q_not":
+                if (col === "IGUAL") estado = "q_rel_ok"; // !=
+                else estado = "q_error"; 
+                break;
+
+            case "q_igual1":
+                if (col === "IGUAL") estado = "q_rel_ok"; // ==
+                else estado = "q_error";
+                break;
+
+            
+            case "q_arit_ok":
+            case "q_rel_ok":
+            case "q_log_ok":
+                estado = "q_error";
+                break;
+        }
+
+        if (estado === "q_error") {
+            mostrarError(`Error Tipo c): Caracter en posicion incorrecta en el lugar n-esimo (${posError}).`);
+            return;
+        }
+    }
+
+    // ---- VERIFICACION DE ESTADOS FINALES DE ACEPTACION ----
+    if (estado === "q_id") {
+        if (palabrasReservadasC.has(cadena)) {
+            mostrarExito("b) Palabra reservada de lenguaje C");
+        } else {
+            mostrarExito("a) Identificador valido de lenguaje C");
+        }
+    } else if (estado === "q_entero") {
+        mostrarExito("c) Numero decimal entero con o sin signo");
+    } else if (estado === "q_real_ok") {
+        mostrarExito("d) Numero decimal real con o sin signo");
+    } else if (estado === "q_hex_ok") {
+        mostrarExito("e) Numero hexadecimal entero sin signo (Intel)");
+    } else if (estado === "q_arit_ok" || estado === "q_mas" || estado === "q_menos") {
+        mostrarExito("g) Operador aritmetico de C");
+    } else if (estado === "q_log_ok" || estado === "q_not") {
+        mostrarExito("h) Operador logico de C");
+    } else if (estado === "q_rel_ok") {
+        mostrarExito("i) Operador relacional de C");
+    } else {
+        // Quedo en un estado intermedio incompleto (ej: "4." o "&")
+        mostrarError("Error Tipo b): Cadena incompleta (faltan caracteres para ser aceptada).");
+    }
+}
+
+function mostrarExito(tipoToken) {
+    const resultBox = document.getElementById('result');
+    resultBox.className = "result-box success";
+    document.getElementById('resultTitle').textContent = "Cadena Aceptada";
+    document.getElementById('resultBody').innerHTML = `<strong>Tipo de Token:</strong> ${tipoToken}`;
+    resultBox.style.display = 'block';
+}
+
+function mostrarError(mensajeError) {
+    const resultBox = document.getElementById('result');
+    resultBox.className = "result-box error";
+    document.getElementById('resultTitle').textContent = "Cadena no valida";
+    document.getElementById('resultBody').innerHTML = `<strong>Tipo de Error:</strong> ${mensajeError}`;
+    resultBox.style.display = 'block';
+}
+</script>
+
+</body>
+</html>
